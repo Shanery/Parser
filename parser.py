@@ -1,8 +1,23 @@
 import re
-import hw1
-from hw1 import Index
-import hw2
-from hw2 import Node
+import data_structs
+from data_structs import Tree
+
+class Index:
+    def __init__(self):
+        self.map = {}
+
+    def __getitem__(self, key):
+        if key in self.map:
+            return self.map[key]
+        else:
+            return []
+
+    def add(self, key, value):
+        if key in self.map:
+            self.map[key].append(value)
+        else:
+            self.map[key] = [value]
+
 
 class Category(tuple):
     def __repr__(self):
@@ -90,7 +105,7 @@ def subst(b, x):
     return Category(cat)
         
     
-class Lexicon(hw1.Lexicon):
+class Lexicon:
     def __init__(self, file_name):
         self.wrds = Index()
         self.prts = Index()
@@ -110,6 +125,12 @@ class Lexicon(hw1.Lexicon):
                 self.wrds.add(cat[0], word)
 
         file.close()
+
+    def parts(self, word):
+        return self.prts[word]
+
+    def words(self, part):
+        return self.wrds[part]
 
 class Rule:
     def __init__(self, lhs, rhs, b=None):
@@ -137,7 +158,14 @@ class Rule:
     def __repr__(self):
         return str(self.lhs) + " -> " + " ".join([str(cat) for cat in self.rhs])
 
-class Grammar(hw1.Grammar):
+class Grammar:
+    def __init__(self, file_name):
+        self.file_name = file_name
+        self.exps = Index()
+        self.conts = Index()
+
+        self.load()
+
     def load(self):
         self.lexicon = Lexicon(self.file_name + ".lex")
         self.exps = Index()
@@ -176,7 +204,16 @@ class Grammar(hw1.Grammar):
 
         grammar.close()
 
-class Edge(hw2.Edge):
+    def expansions(self, part):
+        return self.exps[part]
+
+    def continuations(self, part):
+        return self.conts[part]
+
+    def isterm(self, part):
+        return self.exps[part] == []
+
+class Edge:
     def __init__(self, rule, expansion, bindings):
         self.rule = rule
         self.expansion = expansion
@@ -203,6 +240,22 @@ class Edge(hw2.Edge):
         new = Edge(self.rule, self.expansion + [rhs], self.rule.bindings)
         assert(isinstance(new, Edge))
         return new
+
+    def cat(self):
+        return self.rule.lhs
+
+    def start(self):
+        return self.expansion[0].i
+
+    def end(self):
+        return self.expansion[-1].j
+
+    def afterdot(self):
+        dot_pos = len(self.expansion)
+        if dot_pos >= len(self.rule.rhs):
+            return None
+        else:
+            return self.rule.rhs[dot_pos]
 
 class Parser():
     def __init__(self, grammar):
@@ -306,12 +359,52 @@ class Parser():
         j = e.expansion[-1].j
         self.ToAdd(("node", cat, e.expansion, i, j))
 
-class Node(hw2.Node):
+def cross_product(items):
+    product = [tuple()]
+
+    for row in items:
+        new_products = []
+        for a in product:
+            for b in row:
+                new_products.append((*a, b))
+        product = new_products
+
+    return product
+
+def tree_expansions(node_exps):
+    choices = [n.trees() for n in node_exps]
+    return cross_product(choices)
+
+
+class Node:
+    def __init__(self, cat, item, i, j):
+        self.cat = cat
+        self.i = i
+        self.j = j
+        self.expansions = [item]
+
+    def add(self, expansion):
+        if not(expansion in self.expansions):
+            self.expansions.append(expansion)
+
+    def trees(self):
+        return list(self.itertrees())
+
+    def itertrees(self):
+        for e in self.expansions:
+            if isinstance(e, str):
+                yield Tree(self.cat, word=e)
+            else:
+                for childlist in tree_expansions(e):
+                    yield Tree(self.cat, childlist)
+
     def __repr__(self):
         return '<Node ' + " ".join([str(self.cat), str(self.i), str(self.j)]) + '>'
 
     def __str__(self):
         return '[' + " ".join([str(self.i), str(self.cat), str(self.j)]) + ']'
+
+
 x = Category(["V", 0, 'i', '0'])
 print(x)
 
@@ -345,50 +438,50 @@ if meet("a", "b") != None:
 
 
 # Test Parse
-t={}
-rhs = (parse_category('V.$f.i.$p', t), parse_category('PP.$p', t))
-ccats = (parse_category('V.sg.i.*'), parse_category('PP.to'))
-b = ['*', '*']
-b2 = unify(rhs[0], ccats[0], b)
-print (b2)
-b3 = unify(rhs[1], ccats[1], b2)
-print (b3)
+# t={}
+# rhs = (parse_category('V.$f.i.$p', t), parse_category('PP.$p', t))
+# ccats = (parse_category('V.sg.i.*'), parse_category('PP.to'))
+# b = ['*', '*']
+# b2 = unify(rhs[0], ccats[0], b)
+# print (b2)
+# b3 = unify(rhs[1], ccats[1], b2)
+# print (b3)
 
-lhs = parse_category('X.$p.i.$f', t)
-print (subst(b3, lhs))
+# lhs = parse_category('X.$p.i.$f', t)
+# print (subst(b3, lhs))
 
-t = {}
-np = parse_category('NP.$n', t)
-det = parse_category('Det.$n', t)
-n = parse_category('N.$n', t)
-r = Rule(np, [det,n], ('*',))
-print (r)
+# t = {}
+# np = parse_category('NP.$n', t)
+# det = parse_category('Det.$n', t)
+# n = parse_category('N.$n', t)
+# r = Rule(np, [det,n], ('*',))
+# print (r)
 
-g = Grammar('fg0')
+# g = Grammar('fg0')
 
-print(g.continuations('V'))
+# print(g.continuations('V'))
 
-print (g.lexicon.parts('bark'))
-print (g.continuations('Det'))
-
-
-e = Edge(r, [Node(det, 'this', 0, 1)], ('sg',))
-print(e)
-
-lex = Lexicon('fg0.lex')
-print (lex.parts('barked'))
+# print (g.lexicon.parts('bark'))
+# print (g.continuations('Det'))
 
 
-print("\n\n")
+# e = Edge(r, [Node(det, 'this', 0, 1)], ('sg',))
+# print(e)
 
-p = Parser(Grammar('fg1'))
-x = p('the dog barks'.split())
-print (x[0])
+# lex = Lexicon('fg0.lex')
+# print (lex.parts('barked'))
 
-# print(p.grammar.conts.map)
 
-# print(p.grammar.continuations('Root'))
+# print("\n\n")
 
-x = p('Tuna is a cat'.split())
-print (x[0])
+# p = Parser(Grammar('fg1'))
+# x = p('the dog barks'.split())
+# print (x[0])
+
+# # print(p.grammar.conts.map)
+
+# # print(p.grammar.continuations('Root'))
+
+# x = p('Tuna is a cat'.split())
+# print (x[0])
 

@@ -2,20 +2,20 @@
 import sys, os, runpy
 from traceback import print_tb
 
-# Usage: python -m test3 [-!] [hwdir]
+# Usage: python3 -m test parser
 #   -! causes stack trace to be printed for errors
-#   hwdir defaults to current directory
+#   parser_dir defaults to current directory
 #   If GRAMMARS is set, will look for grammars there, otherwise in current directory
 
 gdir = os.getenv('GRAMMARS') or os.getcwd()
-hwdir = os.getcwd()
+parser_dir = os.getcwd()
 show_traceback = False
 ac = 1
 if ac < len(sys.argv) and sys.argv[ac] == '-!':
     show_traceback = True
     ac += 1
 if ac < len(sys.argv):
-    hwdir = sys.argv[ac]
+    parser_dir = sys.argv[ac]
 
 fg0 = os.path.join(gdir, 'fg0')
 fg1 = os.path.join(gdir, 'fg1')
@@ -24,7 +24,7 @@ for fn in (fg0 + '.g', fg0 + '.lex', fg1 + '.g', fg1 + '.lex', fg1 + '.sents'):
     if not os.path.exists(fn):
         raise Exception('Not found: %s' % fn)
 
-sys.path = [hwdir] + sys.path
+sys.path = [parser_dir] + sys.path
 
 def lst_word (lst):
     if len(lst) == 2 and isinstance(lst[1], str):
@@ -89,11 +89,11 @@ test = Tester()
 
 #--  Tests  --------------------------------------------------------------------
 
-with test('import hw'):
-    import hw3
+with test('import parser'):
+    import parser
 
 with test('Category.__repr__'):
-    cat = hw3.Category(['X', 'y', 1, 0])
+    cat = parser.Category(['X', 'y', 1, 0])
     test.eq(repr(cat), 'X.y.$1.$0')
 
 with test('Category'): test.eq(cat[0], 'X')
@@ -105,39 +105,39 @@ with test('Category'): test.eq(tuple(cat), ('X', 'y', 1, 0))
 
 with test('parse_category cat'):
     symtab = {}
-    cat = hw3.parse_category('A.x.$x', symtab)
-    test.eq(type(cat), hw3.Category)
+    cat = parser.parse_category('A.x.$x', symtab)
+    test.eq(type(cat), parser.Category)
     test.eq(cat, ('A','x',0))
 
 with test('parse_category symtab'):
     test.eq(sorted(symtab.items()), [('x', 0)])
 
 with test('parse_category cat'):
-    cat = hw3.parse_category('B.$y.int.$x', symtab)
-    test.eq(type(cat), hw3.Category)
+    cat = parser.parse_category('B.$y.int.$x', symtab)
+    test.eq(type(cat), parser.Category)
     test.eq(cat, ('B',1,'int',0))
 
 with test('parse_category symtab'):
     test.eq(sorted(symtab.items()), [('x', 0), ('y', 1)])
 
 with test('parse_category cat'):
-    cat = hw3.parse_category('C.$y', symtab)
-    test.eq(type(cat), hw3.Category)
+    cat = parser.parse_category('C.$y', symtab)
+    test.eq(type(cat), parser.Category)
     test.eq(cat, ('C',1))
 
 with test('parse_category symtab'):
     test.eq(sorted(symtab.items()), [('x', 0), ('y', 1)])
 
-with test('meet'): test.eq(hw3.meet('b', 'c'), None)
-with test('meet'): test.eq(hw3.meet('c', 'c'), 'c')
-with test('meet'): test.eq(hw3.meet('c', '*'), 'c')
-with test('meet'): test.eq(hw3.meet('*', 'c'), 'c')
-with test('meet'): test.eq(hw3.meet('*c', 'c'), None)
-with test('meet'): test.eq(hw3.meet('*', '*'), '*')
+with test('meet'): test.eq(parser.meet('b', 'c'), None)
+with test('meet'): test.eq(parser.meet('c', 'c'), 'c')
+with test('meet'): test.eq(parser.meet('c', '*'), 'c')
+with test('meet'): test.eq(parser.meet('*', 'c'), 'c')
+with test('meet'): test.eq(parser.meet('*c', 'c'), None)
+with test('meet'): test.eq(parser.meet('*', '*'), '*')
 
 with test('symtab'):
     t = {}
-    C = hw3.parse_category
+    C = parser.parse_category
     rhs = (C('V.$f.i.$p', t), C('PP.$p', t))
     chcats = (C('V.sg.i.*'), C('PP.to'))
     
@@ -145,8 +145,8 @@ with test('symtab'):
 
 with test('unify'):
     b0 = ('*', '*')
-    b1 = hw3.unify(rhs[0], chcats[0], b0)
-    b2 = hw3.unify(rhs[1], chcats[1], b1)
+    b1 = parser.unify(rhs[0], chcats[0], b0)
+    b2 = parser.unify(rhs[1], chcats[1], b1)
     
     test.eq(b1, ('sg', '*'))
 
@@ -154,13 +154,13 @@ with test('unify'):
     test.eq(b2, ('sg', 'to'))
 
 with test('unify'):
-    b3 = hw3.unify(rhs[0], chcats[0], ('pl', '*'))
+    b3 = parser.unify(rhs[0], chcats[0], ('pl', '*'))
     test.eq(b3, None)
 
 with test('unify exception'):
     # should throw an exception if the second category contains variables
     try:
-        hw3.unify(rhs[0], rhs[0], b0)
+        parser.unify(rhs[0], rhs[0], b0)
         exception = False
     except:
         exception = True
@@ -168,15 +168,15 @@ with test('unify exception'):
 
 with test('subst'):
     lhs = C('X.$p.bar.$f', t)
-    cat = hw3.subst(b2, lhs)
+    cat = parser.subst(b2, lhs)
     test.eq(cat, C('X.to.bar.sg'))
 
 with test('subst'):
-    cat = hw3.subst(b1, lhs)
+    cat = parser.subst(b1, lhs)
     test.eq(cat, C('X.*.bar.sg'))
 
 with test('parts'):
-    lex = hw3.Lexicon(fg0 + '.lex')
+    lex = parser.Lexicon(fg0 + '.lex')
     test.eq(lex.parts('barked'), [C('V.*.i.0')])
 
 with test('parts'):
@@ -186,7 +186,7 @@ with test('rule'):
     t = {}
     lhs = C('VP.$f', t)
     rhs = [C('V.$f.t.$p', t), C('NP.*', t), C('PP.$p', t)]
-    rule = hw3.Rule(lhs, rhs, ('*', '*'))
+    rule = parser.Rule(lhs, rhs, ('*', '*'))
     test.eq(rule.lhs, ('VP',0))
 
 with test('rule'):
@@ -196,11 +196,11 @@ with test('rule.__repr__'):
     test.eq(repr(rule), 'VP.$0 -> V.$0.t.$1 NP.* PP.$1')
 
 with test('continuations'):
-    g0 = hw3.Grammar(fg0)
+    g0 = parser.Grammar(fg0)
     test.eq([repr(r) for r in g0.continuations('V')], ['VP.$0 -> V.$0.i.0'])
 
 with test('load grammar'):
-    g1 = hw3.Grammar(fg1)
+    g1 = parser.Grammar(fg1)
     
 with test('continuations'):
     test.eq(sorted(repr(r) for r in g1.continuations('Aux')),
@@ -214,22 +214,21 @@ with test('g1.lexicon.parts'):
             ['Aux.base.enp', 'Aux.base.ing', 'Aux.base.pred'])
 
 with test('Node'):
-    if hasattr(hw3, 'Node'): from hw3 import Node
-    else: from hw2 import Node
+    if hasattr(parser, 'Node'): from parser import Node
     v = Node(C('V.sg.t.*'), 'chases', 2, 3)
     test.eq(v.cat, ('V','sg','t','*'))
     test.eq(v.i, 2)
     test.eq(v.j, 3)
 
 with test('e.__str__'):
-    e = hw3.Edge(rule, [v], ('sg', '*'))
+    e = parser.Edge(rule, [v], ('sg', '*'))
     test.eq(str(e), 'VP.$0 -> [2 V.sg.t.* 3] * NP.* PP.$1 : sg *')
 
 with test('e.__repr__'):
     test.eq(repr(e), '<Edge VP.$0 -> [2 V.sg.t.* 3] * NP.* PP.$1 : sg *>')
 
 with test('p.reset'):
-    p = hw3.Parser(g0)
+    p = parser.Parser(g0)
     p.reset('this dog barks'.split())
     test.eq(p.chart, {})
 
@@ -353,7 +352,7 @@ with test('call'):
                        [('V','pl','i','0'), 'bark']]])
 
 with test('create parser'):
-    p = hw3.Parser(hw3.Grammar(fg1))
+    p = parser.Parser(parser.Grammar(fg1))
 
 with open(fg1 + '.sents') as f:
     for (i, line) in enumerate(f):
